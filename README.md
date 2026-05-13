@@ -41,3 +41,4 @@ This project is a lightweight browser-based prototype to test and improve tradin
 
 - This is paper testing only; no real order execution is performed.
 - API keys are stored locally in the browser for this prototype.
+- Telegram Bot API tokens are used directly by client-side requests in this prototype, so use a dedicated bot token and rotate it regularly.

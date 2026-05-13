@@ -244,7 +244,11 @@ function average(arr) {
 }
 
 function calculatePriceVolatility(prices) {
-    return prices.reduce((acc, p, idx) => idx === 0 ? acc : acc + Math.abs((p - prices[idx - 1]) / prices[idx - 1]), 0) / (prices.length - 1);
+    const sumOfRelativeMoves = prices.reduce((acc, p, idx) => {
+        if (idx === 0) return acc;
+        return acc + Math.abs((p - prices[idx - 1]) / prices[idx - 1]);
+    }, 0);
+    return sumOfRelativeMoves / (prices.length - 1);
 }
 
 function parseStrategySignals(strategyText) {
@@ -315,7 +319,7 @@ async function callGeminiForImprovement(run) {
 Given this JSON run summary: ${JSON.stringify(run)}
 Return a concise improved strategy in 4-6 bullet points and mention how to reduce missed opportunities.`;
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings.geminiModel)}:generateContent?key=${encodeURIComponent(settings.geminiApiKey)}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings.geminiModel)}:generateContent`;
     const payload = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.4, maxOutputTokens: 500 }
@@ -323,7 +327,10 @@ Return a concise improved strategy in 4-6 bullet points and mention how to reduc
 
     const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': settings.geminiApiKey
+        },
         body: JSON.stringify(payload)
     });
 
@@ -333,8 +340,13 @@ Return a concise improved strategy in 4-6 bullet points and mention how to reduc
     }
 
     const data = await response.json();
-    return data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('\n').trim()
-        || 'No strategy improvement suggestions available from Gemini.';
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const generatedText = parts
+        .map(part => part?.text || '')
+        .filter(Boolean)
+        .join('\n')
+        .trim();
+    return generatedText || 'No strategy improvement suggestions available from Gemini.';
 }
 
 function upsertLog(entry) {
