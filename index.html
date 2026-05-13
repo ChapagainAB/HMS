@@ -3,28 +3,551 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Deletion Instructions</title>
+    <title>Gemini Strategy Paper Tester</title>
     <style>
-        body {
+        :root {
+            color-scheme: light;
             font-family: Arial, sans-serif;
-            margin: 40px;
-            line-height: 1.6;
+        }
+        body {
+            margin: 0;
+            background: #f6f8fa;
+            color: #111827;
+        }
+        main {
+            max-width: 980px;
+            margin: 32px auto;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 28px rgba(17, 24, 39, 0.08);
+            padding: 24px;
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 1.7rem;
+        }
+        .grid {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        }
+        section {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 16px;
+            background: #fafafa;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        input, textarea, select, button {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            background: #fff;
+        }
+        textarea {
+            min-height: 110px;
+            resize: vertical;
+        }
+        button {
+            cursor: pointer;
+            background: #2563eb;
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+        button.secondary {
+            background: #1f2937;
+        }
+        button:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+        .result-line {
+            margin: 5px 0;
+        }
+        .muted {
+            color: #4b5563;
+            font-size: 0.9rem;
+        }
+        ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+        code {
+            background: #e5e7eb;
+            border-radius: 4px;
+            padding: 1px 4px;
         }
     </style>
 </head>
 <body>
-    <h2>Data Deletion Instructions</h2>
-    <p>If you wish to delete your data associated with our application, please follow these steps:</p>
-    <ol>
-        <li>Send an email to <strong>your-email@example.com</strong> with the subject "Data Deletion Request".</li>
-        <li>Include your Facebook ID or the email used for login.</li>
-        <li>We will process your request within 7 days and remove all associated data.</li>
-    </ol>
-    <p>You can also remove our app from Facebook:</p>
-    <ul>
-        <li>Go to <a href="https://www.facebook.com/settings?tab=applications" target="_blank">Facebook Settings → Apps & Websites</a>.</li>
-        <li>Find our app and remove it.</li>
-        <li>This will delete all data stored by Facebook.</li>
-    </ul>
+<main>
+    <h1>Gemini Strategy Paper Tester</h1>
+    <p class="muted">Paper-test trading strategies for crypto, gold, and silver. Get Gemini-driven strategy improvements, keep run logs, notify via Telegram, and pull <code>/test</code> strategy commands from Telegram chats.</p>
+
+    <div class="grid">
+        <section>
+            <h2>1) API Settings</h2>
+            <label for="geminiApiKey">Gemini API Key</label>
+            <input id="geminiApiKey" type="password" placeholder="AIza...">
+
+            <label for="geminiModel">Gemini Model</label>
+            <input id="geminiModel" type="text" value="gemini-1.5-flash" placeholder="gemini-1.5-flash">
+
+            <label for="telegramBotToken">Telegram Bot Token</label>
+            <input id="telegramBotToken" type="password" placeholder="123456:ABC...">
+
+            <label for="telegramChatId">Telegram Chat ID</label>
+            <input id="telegramChatId" type="text" placeholder="123456789">
+
+            <button id="saveSettings">Save Settings</button>
+            <div id="settingsStatus" class="muted"></div>
+        </section>
+
+        <section>
+            <h2>2) Strategy Test</h2>
+            <label for="market">Market</label>
+            <select id="market">
+                <option value="BTCUSDT">Crypto - BTC/USDT</option>
+                <option value="ETHUSDT">Crypto - ETH/USDT</option>
+                <option value="XAUUSD">Gold - XAU/USD</option>
+                <option value="XAGUSD">Silver - XAG/USD</option>
+            </select>
+
+            <label for="strategy">Strategy</label>
+            <textarea id="strategy" placeholder="Example: Buy when RSI below 30 and sell when RSI above 70 with 2% stop loss."></textarea>
+
+            <button id="runTest">Run Paper Test</button>
+            <button id="fetchTelegram" class="secondary">Fetch /test From Telegram</button>
+        </section>
+    </div>
+
+    <div class="grid" style="margin-top: 16px;">
+        <section>
+            <h2>3) Latest Result</h2>
+            <div id="latestResult" class="muted">Run a strategy to see metrics.</div>
+            <button id="sendTelegram" class="secondary" disabled>Send Latest Result to Telegram</button>
+        </section>
+
+        <section>
+            <h2>4) Improvement & Learning</h2>
+            <div id="improvement" class="muted">Gemini-generated strategy improvement will appear here.</div>
+        </section>
+
+        <section>
+            <h2>5) Run Logs</h2>
+            <ul id="logs"></ul>
+        </section>
+    </div>
+</main>
+
+<script>
+const STORAGE_KEYS = {
+    settings: 'hms_settings',
+    logs: 'hms_logs',
+    updateOffset: 'hms_telegram_update_offset'
+};
+
+const PAPER_TEST_CONFIG = {
+    opportunityVolatilityMultiplier: 140,
+    minimumOpportunities: 3,
+    trendCaptureDivisor: 3,
+    minWinRate: 35,
+    maxWinRate: 93,
+    baseWinRate: 45,
+    signalWeight: 7,
+    trendWeight: 2,
+    volatilityPenalty: 120
+};
+
+const TELEGRAM_TEST_COMMAND_PATTERN = /^\/test\s+([A-Z]{3,8})\s+([\s\S]+)/i;
+
+const MARKET_DATA = {
+    BTCUSDT: [61700, 62350, 62100, 63000, 64100, 63850, 64780, 65000, 64510, 65330, 66200, 65500],
+    ETHUSDT: [3060, 3092, 3075, 3120, 3155, 3110, 3180, 3220, 3195, 3240, 3285, 3260],
+    XAUUSD: [2310, 2325, 2318, 2330, 2342, 2335, 2350, 2361, 2354, 2369, 2375, 2368],
+    XAGUSD: [28.2, 28.35, 28.1, 28.5, 28.72, 28.6, 28.95, 29.1, 28.88, 29.2, 29.35, 29.18]
+};
+
+const ui = {
+    geminiApiKey: document.getElementById('geminiApiKey'),
+    geminiModel: document.getElementById('geminiModel'),
+    telegramBotToken: document.getElementById('telegramBotToken'),
+    telegramChatId: document.getElementById('telegramChatId'),
+    settingsStatus: document.getElementById('settingsStatus'),
+    market: document.getElementById('market'),
+    strategy: document.getElementById('strategy'),
+    latestResult: document.getElementById('latestResult'),
+    improvement: document.getElementById('improvement'),
+    logs: document.getElementById('logs'),
+    runTest: document.getElementById('runTest'),
+    sendTelegram: document.getElementById('sendTelegram'),
+    saveSettings: document.getElementById('saveSettings'),
+    fetchTelegram: document.getElementById('fetchTelegram')
+};
+
+let latestRun = null;
+
+function readJSON(key, fallback) {
+    try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function writeJSON(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+}
+
+function getSettings() {
+    return readJSON(STORAGE_KEYS.settings, {
+        geminiApiKey: '',
+        geminiModel: 'gemini-1.5-flash',
+        telegramBotToken: '',
+        telegramChatId: ''
+    });
+}
+
+function saveSettings() {
+    const settings = {
+        geminiApiKey: ui.geminiApiKey.value.trim(),
+        geminiModel: ui.geminiModel.value.trim() || 'gemini-1.5-flash',
+        telegramBotToken: ui.telegramBotToken.value.trim(),
+        telegramChatId: ui.telegramChatId.value.trim()
+    };
+    writeJSON(STORAGE_KEYS.settings, settings);
+    ui.settingsStatus.textContent = 'Settings saved locally.';
+}
+
+function loadSettingsIntoForm() {
+    const s = getSettings();
+    ui.geminiApiKey.value = s.geminiApiKey;
+    ui.geminiModel.value = s.geminiModel;
+    ui.telegramBotToken.value = s.telegramBotToken;
+    ui.telegramChatId.value = s.telegramChatId;
+}
+
+function average(arr) {
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+function calculatePriceVolatility(prices) {
+    const sumOfRelativeMoves = prices.reduce((acc, p, idx) => {
+        if (idx === 0) return acc;
+        return acc + Math.abs((p - prices[idx - 1]) / prices[idx - 1]);
+    }, 0);
+    return sumOfRelativeMoves / (prices.length - 1);
+}
+
+function parseStrategySignals(strategyText) {
+    const text = strategyText.toLowerCase();
+    return {
+        useRsi: text.includes('rsi'),
+        useMacd: text.includes('macd'),
+        useStopLoss: text.includes('stop') || text.includes('sl'),
+        useTakeProfit: text.includes('take profit') || text.includes('tp'),
+        useBreakout: text.includes('breakout') || text.includes('range')
+    };
+}
+
+function paperTest(market, strategyText) {
+    const prices = MARKET_DATA[market];
+    const avgPrice = average(prices);
+    const start = prices[0];
+    const end = prices[prices.length - 1];
+    const trendScore = ((end - start) / start) * 100;
+    const volatility = calculatePriceVolatility(prices);
+
+    const signals = parseStrategySignals(strategyText);
+    const featureCoverage = Object.values(signals).filter(Boolean).length;
+    const opportunities = Math.max(
+        PAPER_TEST_CONFIG.minimumOpportunities,
+        Math.round(volatility * PAPER_TEST_CONFIG.opportunityVolatilityMultiplier)
+    );
+    const captured = Math.min(
+        opportunities,
+        Math.max(1, featureCoverage + Math.round(Math.abs(trendScore) / PAPER_TEST_CONFIG.trendCaptureDivisor))
+    );
+    const missed = Math.max(0, opportunities - captured);
+
+    const winRate = Math.max(
+        PAPER_TEST_CONFIG.minWinRate,
+        Math.min(
+            PAPER_TEST_CONFIG.maxWinRate,
+            PAPER_TEST_CONFIG.baseWinRate
+            + featureCoverage * PAPER_TEST_CONFIG.signalWeight
+            + trendScore / PAPER_TEST_CONFIG.trendWeight
+            - volatility * PAPER_TEST_CONFIG.volatilityPenalty
+        )
+    );
+    const estimatedAccuracy = Number(winRate.toFixed(2));
+    const pnlPercent = Number((trendScore * (captured / opportunities)).toFixed(2));
+
+    return {
+        market,
+        strategy: strategyText,
+        avgPrice: Number(avgPrice.toFixed(2)),
+        opportunities,
+        captured,
+        missed,
+        accuracy: estimatedAccuracy,
+        pnlPercent,
+        timestamp: new Date().toISOString(),
+        notes: missed > 0 ? 'Missed opportunities detected.' : 'Strong opportunity coverage.'
+    };
+}
+
+async function callGeminiForImprovement(run) {
+    const settings = getSettings();
+    if (!settings.geminiApiKey) {
+        return `No Gemini key configured. Suggested improvement: add explicit entry/exit rules, stop-loss, and confirmation signals for ${run.market}.`;
+    }
+
+    const prompt = `You are optimizing a trading strategy after a paper test run.
+Given this JSON run summary: ${JSON.stringify(run)}
+Return a concise improved strategy in 4-6 bullet points and mention how to reduce missed opportunities.`;
+
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings.geminiModel)}:generateContent`;
+    const payload = {
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 500 }
+    };
+
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': settings.geminiApiKey
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const reason = await response.text();
+        throw new Error(`Gemini request failed: ${response.status} ${reason}`);
+    }
+
+    const data = await response.json();
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const generatedText = parts
+        .map(part => part?.text || '')
+        .filter(Boolean)
+        .join('\n')
+        .trim();
+    return generatedText || 'No strategy improvement suggestions available from Gemini.';
+}
+
+function upsertLog(entry) {
+    const logs = readJSON(STORAGE_KEYS.logs, []);
+    logs.unshift(entry);
+    writeJSON(STORAGE_KEYS.logs, logs.slice(0, 25));
+    renderLogs();
+}
+
+function renderLatest(run) {
+    if (!run) {
+        ui.latestResult.textContent = 'Run a strategy to see metrics.';
+        ui.sendTelegram.disabled = true;
+        return;
+    }
+
+    ui.latestResult.innerHTML = '';
+    const lines = [
+        `Market: ${run.market}`,
+        `Accuracy: ${run.accuracy}%`,
+        `Estimated PnL: ${run.pnlPercent}%`,
+        `Opportunities: ${run.opportunities}`,
+        `Captured: ${run.captured}`,
+        `Missed: ${run.missed}`,
+        `Average Price: ${run.avgPrice}`,
+        `Note: ${run.notes}`
+    ];
+
+    for (const line of lines) {
+        const div = document.createElement('div');
+        div.className = 'result-line';
+        div.textContent = line;
+        ui.latestResult.appendChild(div);
+    }
+
+    ui.sendTelegram.disabled = false;
+}
+
+function renderLogs() {
+    const logs = readJSON(STORAGE_KEYS.logs, []);
+    ui.logs.innerHTML = '';
+    if (!logs.length) {
+        const li = document.createElement('li');
+        li.textContent = 'No runs yet.';
+        ui.logs.appendChild(li);
+        return;
+    }
+
+    for (const item of logs) {
+        const li = document.createElement('li');
+        li.textContent = `[${new Date(item.timestamp).toLocaleString()}] ${item.market} | Accuracy ${item.accuracy}% | Missed ${item.missed}`;
+        ui.logs.appendChild(li);
+    }
+}
+
+function buildTelegramMessage(run, improvement) {
+    return [
+        `📊 Paper Test Result`,
+        `Market: ${run.market}`,
+        `Accuracy: ${run.accuracy}%`,
+        `Estimated PnL: ${run.pnlPercent}%`,
+        `Captured/Missed: ${run.captured}/${run.missed}`,
+        `Strategy: ${run.strategy}`,
+        `Improvement: ${improvement}`
+    ].join('\n');
+}
+
+async function sendTelegramMessage(text) {
+    const settings = getSettings();
+    if (!settings.telegramBotToken || !settings.telegramChatId) {
+        throw new Error('Telegram bot token/chat ID are required.');
+    }
+
+    const url = `https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`;
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: settings.telegramChatId, text })
+    });
+
+    if (!response.ok) {
+        const reason = await response.text();
+        throw new Error(`Telegram send failed: ${response.status} ${reason}`);
+    }
+}
+
+async function fetchTelegramStrategyCommand() {
+    const settings = getSettings();
+    if (!settings.telegramBotToken) {
+        throw new Error('Telegram bot token is required to fetch commands.');
+    }
+
+    const parsedOffset = Number(localStorage.getItem(STORAGE_KEYS.updateOffset) || '0');
+    const offset = Number.isFinite(parsedOffset) ? parsedOffset : 0;
+    const url = `https://api.telegram.org/bot${settings.telegramBotToken}/getUpdates?timeout=1&offset=${offset}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+        const reason = await response.text();
+        throw new Error(`Telegram updates failed: ${response.status} ${reason}`);
+    }
+
+    const data = await response.json();
+    if (!data.ok) {
+        throw new Error('Telegram updates response is not ok.');
+    }
+
+    const updates = data.result || [];
+    if (!updates.length) {
+        return null;
+    }
+
+    const latest = updates[updates.length - 1];
+    localStorage.setItem(STORAGE_KEYS.updateOffset, String(latest.update_id + 1));
+
+    const text = latest.message?.text || '';
+    const match = text.match(TELEGRAM_TEST_COMMAND_PATTERN);
+    if (!match) {
+        return null;
+    }
+
+    const market = match[1].toUpperCase();
+    const strategy = match[2].trim();
+    if (!MARKET_DATA[market]) {
+        throw new Error(`Unsupported market in command: ${market}`);
+    }
+    return { market, strategy };
+}
+
+async function runStrategyTest(sourceLabel = 'manual') {
+    const market = ui.market.value;
+    const strategy = ui.strategy.value.trim();
+    if (!strategy) {
+        ui.improvement.textContent = 'Please enter a strategy first.';
+        return;
+    }
+
+    ui.runTest.disabled = true;
+    ui.improvement.textContent = 'Running paper test and requesting Gemini improvement...';
+
+    try {
+        const run = paperTest(market, strategy);
+        const improvement = await callGeminiForImprovement(run);
+
+        run.improvement = improvement;
+        run.source = sourceLabel;
+
+        latestRun = run;
+        renderLatest(run);
+        ui.improvement.textContent = improvement;
+        upsertLog(run);
+
+        if (sourceLabel === 'telegram') {
+            await sendTelegramMessage(buildTelegramMessage(run, improvement));
+        }
+    } catch (error) {
+        ui.improvement.textContent = error.message;
+    } finally {
+        ui.runTest.disabled = false;
+    }
+}
+
+ui.saveSettings.addEventListener('click', saveSettings);
+ui.runTest.addEventListener('click', () => runStrategyTest('manual'));
+
+ui.sendTelegram.addEventListener('click', async () => {
+    if (!latestRun) return;
+
+    ui.sendTelegram.disabled = true;
+    try {
+        await sendTelegramMessage(buildTelegramMessage(latestRun, latestRun.improvement));
+        ui.improvement.textContent = 'Latest result sent to Telegram.';
+    } catch (error) {
+        ui.improvement.textContent = error.message;
+    } finally {
+        ui.sendTelegram.disabled = false;
+    }
+});
+
+ui.fetchTelegram.addEventListener('click', async () => {
+    ui.fetchTelegram.disabled = true;
+    try {
+        const command = await fetchTelegramStrategyCommand();
+        if (!command) {
+            ui.improvement.textContent = 'No new /test command found in Telegram updates.';
+            return;
+        }
+
+        ui.market.value = command.market;
+        ui.strategy.value = command.strategy;
+        await runStrategyTest('telegram');
+    } catch (error) {
+        ui.improvement.textContent = error.message;
+    } finally {
+        ui.fetchTelegram.disabled = false;
+    }
+});
+
+loadSettingsIntoForm();
+renderLogs();
+renderLatest(null);
+</script>
 </body>
 </html>
