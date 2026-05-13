@@ -158,6 +158,20 @@ const STORAGE_KEYS = {
     updateOffset: 'hms_telegram_update_offset'
 };
 
+const PAPER_TEST_CONFIG = {
+    opportunityVolatilityMultiplier: 140,
+    minimumOpportunities: 3,
+    trendCaptureDivisor: 3,
+    minWinRate: 35,
+    maxWinRate: 93,
+    baseWinRate: 45,
+    signalWeight: 7,
+    trendWeight: 2,
+    volatilityPenalty: 120
+};
+
+const TELEGRAM_TEST_COMMAND_PATTERN = /^\/test\s+([A-Z]{3,8})\s+([\s\S]+)/i;
+
 const MARKET_DATA = {
     BTCUSDT: [61700, 62350, 62100, 63000, 64100, 63850, 64780, 65000, 64510, 65330, 66200, 65500],
     ETHUSDT: [3060, 3092, 3075, 3120, 3155, 3110, 3180, 3220, 3195, 3240, 3285, 3260],
@@ -229,6 +243,10 @@ function average(arr) {
     return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
+function calculatePriceVolatility(prices) {
+    return prices.reduce((acc, p, idx) => idx === 0 ? acc : acc + Math.abs((p - prices[idx - 1]) / prices[idx - 1]), 0) / (prices.length - 1);
+}
+
 function parseStrategySignals(strategyText) {
     const text = strategyText.toLowerCase();
     return {
@@ -246,15 +264,30 @@ function paperTest(market, strategyText) {
     const start = prices[0];
     const end = prices[prices.length - 1];
     const trendScore = ((end - start) / start) * 100;
-    const volatility = prices.reduce((acc, p, idx) => idx === 0 ? acc : acc + Math.abs((p - prices[idx - 1]) / prices[idx - 1]), 0) / (prices.length - 1);
+    const volatility = calculatePriceVolatility(prices);
 
     const signals = parseStrategySignals(strategyText);
     const featureCoverage = Object.values(signals).filter(Boolean).length;
-    const opportunities = Math.max(3, Math.round(volatility * 140));
-    const captured = Math.min(opportunities, Math.max(1, featureCoverage + Math.round(Math.abs(trendScore) / 3)));
+    const opportunities = Math.max(
+        PAPER_TEST_CONFIG.minimumOpportunities,
+        Math.round(volatility * PAPER_TEST_CONFIG.opportunityVolatilityMultiplier)
+    );
+    const captured = Math.min(
+        opportunities,
+        Math.max(1, featureCoverage + Math.round(Math.abs(trendScore) / PAPER_TEST_CONFIG.trendCaptureDivisor))
+    );
     const missed = Math.max(0, opportunities - captured);
 
-    const winRate = Math.max(35, Math.min(93, 45 + featureCoverage * 7 + trendScore / 2 - volatility * 120));
+    const winRate = Math.max(
+        PAPER_TEST_CONFIG.minWinRate,
+        Math.min(
+            PAPER_TEST_CONFIG.maxWinRate,
+            PAPER_TEST_CONFIG.baseWinRate
+            + featureCoverage * PAPER_TEST_CONFIG.signalWeight
+            + trendScore / PAPER_TEST_CONFIG.trendWeight
+            - volatility * PAPER_TEST_CONFIG.volatilityPenalty
+        )
+    );
     const estimatedAccuracy = Number(winRate.toFixed(2));
     const pnlPercent = Number((trendScore * (captured / opportunities)).toFixed(2));
 
@@ -301,7 +334,7 @@ Return a concise improved strategy in 4-6 bullet points and mention how to reduc
 
     const data = await response.json();
     return data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('\n').trim()
-        || 'Gemini returned no improvement text.';
+        || 'No strategy improvement suggestions available from Gemini.';
 }
 
 function upsertLog(entry) {
@@ -394,7 +427,8 @@ async function fetchTelegramStrategyCommand() {
         throw new Error('Telegram bot token is required to fetch commands.');
     }
 
-    const offset = Number(localStorage.getItem(STORAGE_KEYS.updateOffset) || '0');
+    const parsedOffset = Number(localStorage.getItem(STORAGE_KEYS.updateOffset) || '0');
+    const offset = Number.isFinite(parsedOffset) ? parsedOffset : 0;
     const url = `https://api.telegram.org/bot${encodeURIComponent(settings.telegramBotToken)}/getUpdates?timeout=1&offset=${offset}`;
     const response = await fetch(url);
 
@@ -417,7 +451,7 @@ async function fetchTelegramStrategyCommand() {
     localStorage.setItem(STORAGE_KEYS.updateOffset, String(latest.update_id + 1));
 
     const text = latest.message?.text || '';
-    const match = text.match(/^\/test\s+([A-Z]{3,8})\s+([\s\S]+)/i);
+    const match = text.match(TELEGRAM_TEST_COMMAND_PATTERN);
     if (!match) {
         return null;
     }
@@ -471,7 +505,7 @@ ui.sendTelegram.addEventListener('click', async () => {
 
     ui.sendTelegram.disabled = true;
     try {
-        await sendTelegramMessage(buildTelegramMessage(latestRun, latestRun.improvement || 'No improvement text'));
+        await sendTelegramMessage(buildTelegramMessage(latestRun, latestRun.improvement || 'Strategy improvement not available'));
         ui.improvement.textContent = 'Latest result sent to Telegram.';
     } catch (error) {
         ui.improvement.textContent = error.message;
