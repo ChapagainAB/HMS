@@ -420,7 +420,7 @@ async function sendTelegramMessage(text) {
         throw new Error('Telegram bot token/chat ID are required.');
     }
 
-    const url = `https://api.telegram.org/bot${encodeURIComponent(settings.telegramBotToken)}/sendMessage`;
+    const url = `https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`;
     const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -441,7 +441,7 @@ async function fetchTelegramStrategyCommand() {
 
     const parsedOffset = Number(localStorage.getItem(STORAGE_KEYS.updateOffset) || '0');
     const offset = Number.isFinite(parsedOffset) ? parsedOffset : 0;
-    const url = `https://api.telegram.org/bot${encodeURIComponent(settings.telegramBotToken)}/getUpdates?timeout=1&offset=${offset}`;
+    const url = `https://api.telegram.org/bot${settings.telegramBotToken}/getUpdates?timeout=1&offset=${offset}`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -517,7 +517,7 @@ ui.sendTelegram.addEventListener('click', async () => {
 
     ui.sendTelegram.disabled = true;
     try {
-        await sendTelegramMessage(buildTelegramMessage(latestRun, latestRun.improvement || 'Strategy improvement not available'));
+        await sendTelegramMessage(buildTelegramMessage(latestRun, latestRun.improvement));
         ui.improvement.textContent = 'Latest result sent to Telegram.';
     } catch (error) {
         ui.improvement.textContent = error.message;
